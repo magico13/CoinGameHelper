@@ -15,14 +15,11 @@ public class Board
 {
     public List<LineInfo> Rows { get; set; } = new List<LineInfo>(5);
 
-    public List<LineInfo> Cols { get; set; } = new List<LineInfo>(5);
-    public int[,] GameBoard { get; set; } = new int[5,5];
+    public List<LineInfo> Columns { get; set; } = new List<LineInfo>(5);
+
+    private int[,] GameBoard { get; set; } = new int[5,5];
 
     public Board(){}
-    public Board(Board original)
-    {
-        GameBoard = original.GameBoard;
-    }
 
     public SpaceType GetValue(int row, int col)
     {
@@ -38,8 +35,6 @@ public class Board
     {
         GameBoard[row, col] = val;
     }
-
-    
 
     public int GetRowScore(int row, int bombVal = 0)
     {

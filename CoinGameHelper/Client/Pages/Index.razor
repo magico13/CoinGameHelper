@@ -1,8 +1,180 @@
 ﻿@page "/"
 
+@using CoinGameHelper;
+
 <PageTitle>Index</PageTitle>
 
 <h1>Coin Game Helper</h1>
 
 A helper for the HeartGold/SoulSilver Arcade Coin Game.
 
+@if (Simulation.WereRowsAndColumnsFinalized is false)
+{
+    @*Table to define each of the 5 rows*@
+    <Table Style="width: 500px">
+        <TableHeader>
+            <TableHeaderCell Style="width: 50px">Row</TableHeaderCell>
+            <TableHeaderCell>Points</TableHeaderCell>
+            <TableHeaderCell>Bombs</TableHeaderCell>
+        </TableHeader>
+        @for (int i = 0; i < 5; i++)
+        {
+            var row = i;
+            <TableRow Style=@("background-color:"+colorNames[row]) >
+                <TableRowCell TextAlignment="TextAlignment.Center">
+                    @(row + 1)
+                </TableRowCell>
+                <TableRowCell>
+                    <NumericEdit TValue="int" Max="15" Min="0" @bind-Value="Simulation.Board.Rows[row].Points" />
+                </TableRowCell>
+                <TableRowCell>
+                    <NumericEdit TValue="int" Max="5" Min="0" @bind-Value="Simulation.Board.Rows[row].Bombs" />
+                </TableRowCell>
+            </TableRow>
+        }
+    </Table>
+
+    @*Table for the 5 columns*@
+    <Table Style="width: 500px">
+        <TableHeader>
+            <TableHeaderCell Style="width: 50px">Column</TableHeaderCell>
+            <TableHeaderCell>Points</TableHeaderCell>
+            <TableHeaderCell>Bombs</TableHeaderCell>
+        </TableHeader>
+        @for (int j = 0; j < 5; j++)
+        {
+            var col = j;
+            <TableRow Style=@("background-color:"+colorNames[col])>
+                <TableRowCell TextAlignment="TextAlignment.Center">
+                    @(col + 1)
+                </TableRowCell>
+                <TableRowCell>
+                    <NumericEdit TValue="int" Max="15" Min="0" @bind-Value="Simulation.Board.Columns[col].Points" />
+                </TableRowCell>
+                <TableRowCell>
+                    <NumericEdit TValue="int" Max="5" Min="0" @bind-Value="Simulation.Board.Columns[col].Bombs" />
+                </TableRowCell>
+            </TableRow>
+        }
+    </Table>
+
+    <Button Color="Color.Primary" Clicked="Start">Start</Button>
+}
+else
+{
+    @*The board is (at least for now) a table of 5x5 small text edits. When a value is edited, we update the board and run a simulate*@
+    <Table Bordered Narrow TextAlignment="TextAlignment.Center" Style="width: 250px">
+     @for (int i = 0; i < Simulation.Board.Rows.Count; i++)
+        {
+            var row = i;
+            <TableRow>
+                @for (int j = 0; j < Simulation.Board.Columns.Count; j++)
+                {
+                    var col = j;
+                    <TableRowCell>
+                        <Div>
+                            @{
+                                var value = Simulation.Board.GetValue(row, col);
+                                var iconName = GetIconNameForValue(value);
+                                if (iconName is not null)
+                                {
+                                    <Icon Name=iconName Clicked="@(async e => await PopModal(row, col))" />
+                                }
+                                else
+                                {
+                                    @(((int)value).ToString())
+                                    // <Button Color="Color.Default" Clicked="@(async e=> await PopModal(row, col))">
+                                    //     @(((int)value).ToString())
+                                    // </Button>
+                                }
+                            }
+                        </Div>
+                    </TableRowCell>
+                }
+                <TableRowCell></TableRowCell>
+                <TableRowCell Style="@("background-color: "+colorNames[row])">
+                    @{
+                        var rowDiff = Simulation.Board.Rows[row].Points + Simulation.Board.Rows[row].Bombs - Simulation.Board.GetRowScore(row, bombVal: 1);
+                        @(rowDiff.ToString())
+                    }
+                </TableRowCell>
+            </TableRow>
+        }
+        <TableRow>
+            <TableRowCell></TableRowCell>
+        </TableRow>
+        <TableRow>
+            @for (int j = 0; j < Simulation.Board.Columns.Count; j++)
+            {
+                var col = j;
+                <TableRowCell Style="@("background-color: "+colorNames[col])">
+                    @{
+                        var colDiff = Simulation.Board.Columns[col].Points + Simulation.Board.Columns[col].Bombs - Simulation.Board.GetColumnScore(col, bombVal: 1);
+                        @(colDiff.ToString())
+                    }
+                </TableRowCell>
+            }
+        </TableRow>
+    </Table>
+}
+
+
+<Modal @ref="selectionModal">
+    <ModalContent>
+        <ModalHeader>
+            <ModalTitle>Select Value</ModalTitle>
+            <CloseButton />
+        </ModalHeader>
+        <ModalBody>
+            <Button Clicked="@(async e => await SetValue(1))">1</Button>
+            <Button Clicked="@(async e => await SetValue(2))">2</Button>
+            <Button Clicked="@(async e => await SetValue(3))">3</Button>
+        </ModalBody>
+    </ModalContent>
+</Modal>
+
+@code {
+    Modal selectionModal { get; set; } = new();
+    Simulation Simulation { get; set; } = new();
+    private string[] colorNames = new string[] { "red", "green", "yellow", "lightblue", "mediumpurple" };
+
+    private int selectedRow = 0;
+    private int selectedColumn = 0;
+
+    protected override void OnInitialized()
+    {
+        Simulation = new Simulation();
+    }
+
+    private void Start()
+    {
+        Simulation.FinalizeRowsAndColumns();
+    }
+
+    private IconName? GetIconNameForValue(SpaceType type)
+    {
+        return type switch
+        {
+            SpaceType.Unknown => IconName.Expand,
+            SpaceType.Safe => IconName.Check,
+            SpaceType.Bomb => IconName.ExclamationTriangle,
+            SpaceType.BombOrOne => IconName.ExclamationCircle,
+            _ => null
+        };
+    }
+
+    private async Task PopModal(int row, int col)
+    {
+        selectedRow = row;
+        selectedColumn = col;
+        await selectionModal.Show();
+    }
+
+
+    private async Task SetValue(int value)
+    {
+        await selectionModal.Hide();
+        Simulation.Board.SetValue(value, selectedRow, selectedColumn);
+        Simulation.Simulate();
+    }
+}

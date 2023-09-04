@@ -40,7 +40,7 @@ static void PrintBoard(Board board)
     Console.WriteLine("v v v v v");
     for (int col = 0; col < 5; col++)
     {
-        var colDiff = board.Cols[col].Points + board.Cols[col].Bombs - board.GetColumnScore(col, bombVal: 1);
+        var colDiff = board.Columns[col].Points + board.Columns[col].Bombs - board.GetColumnScore(col, bombVal: 1);
         Console.Write($"{colDiff} ");
     }
     Console.WriteLine();
@@ -76,7 +76,7 @@ static void Setup(Simulation simulation)
             Console.WriteLine("Invalid input");
             return;
         }
-        board.Cols.Add(new()
+        board.Columns.Add(new()
         {
             Points = int.Parse(line[..^1]),
             Bombs = int.Parse(line[^1..])
@@ -90,7 +90,7 @@ static void Setup(Simulation simulation)
     // If points+bombs > known_points+unknown_spaces then at least one of the unknown spaces must be a 2 or 3
     // Ultimately we can simulate all possible boards that satisfy the criteria to get the likelihood of a space being worthwhile. Eventually it will come down to chance (often a 50-50)
 
-    var (safeRows, safeCols) = simulation.RowsAndColumnsFinalized();
+    var (safeRows, safeCols) = simulation.FinalizeRowsAndColumns();
 
     foreach (var row in safeRows)
     {

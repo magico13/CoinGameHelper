@@ -3,6 +3,7 @@
 public class Simulation
 {
     public Board Board { get; private set; } = new();
+    public bool WereRowsAndColumnsFinalized { get; private set; }
 
     public Simulation()
     {
@@ -11,16 +12,22 @@ public class Simulation
 
     public void StartNew()
     {
+        WereRowsAndColumnsFinalized = false;
         Board = new Board();
+        for (int i = 0; i< 5; i++)
+        {
+            Board.Rows.Add(new());
+            Board.Columns.Add(new());
+        }
     }
 
-    public (List<int> safeRows, List<int> safeColumns) RowsAndColumnsFinalized()
+    public (List<int> safeRows, List<int> safeColumns) FinalizeRowsAndColumns()
     {
         for (int i = 0; i < 5; i++)
         {
             // if the sum of points and bombs is 5, the line is worthless (mark as x)
             var row = Board.Rows[i];
-            var col = Board.Cols[i];
+            var col = Board.Columns[i];
 
             if (row.Bombs + row.Points == 5)
             {
@@ -54,7 +61,7 @@ public class Simulation
         for (int i = 0; i < 5; i++)
         {
             var row = Board.Rows[i];
-            var col = Board.Cols[i];
+            var col = Board.Columns[i];
             // If there are no bombs in the line it is safe. Might be all 1s
             if (row.Bombs == 0)
             {
@@ -89,6 +96,9 @@ public class Simulation
                 }
             }
         }
+
+        WereRowsAndColumnsFinalized = true;
+        Simulate();
         return (safeRows, safeColumns);
     }
 
@@ -172,7 +182,7 @@ public class Simulation
             }
 
             var colScore = Board.GetColumnScore(i);
-            if (colScore == Board.Cols[i].Points)
+            if (colScore == Board.Columns[i].Points)
             {
                 // any unknowns are bombs
                 for (int j = 0; j < 5; j++)
@@ -185,7 +195,7 @@ public class Simulation
                 }
             }
             var colBombs = Board.GetColumnsKnownBombs(i);
-            if (colBombs == Board.Cols[i].Bombs)
+            if (colBombs == Board.Columns[i].Bombs)
             {
                 //all bombs known, any unknowns are safe
                 for (int j = 0; j < 5; j++)
@@ -202,7 +212,7 @@ public class Simulation
                 }
             }
             var colUnknowns = Board.GetColumnUnknownCount(i);
-            if (colScore + colBombs + colUnknowns == Board.Cols[i].Points + Board.Cols[i].Bombs)
+            if (colScore + colBombs + colUnknowns == Board.Columns[i].Points + Board.Columns[i].Bombs)
             {
                 // everything unknown is a BombOrOne, ie not worth choosing
                 for (int j = 0; j < 5; j++)
@@ -217,7 +227,7 @@ public class Simulation
 
             // if the (points+bombs) - (known score + BombOrOne spaces) >= 3*(0 spaces - 1)+2
             // then all remaining spaces must be 2 or 3 spaces, ie safe
-            var colDiff = Board.Cols[i].Points + Board.Cols[i].Bombs - Board.GetColumnScore(i, bombVal: 1);
+            var colDiff = Board.Columns[i].Points + Board.Columns[i].Bombs - Board.GetColumnScore(i, bombVal: 1);
             if (colDiff > (3 * (Board.GetColumnUnknownCount(i, false) - 1) + 2))
             {
                 for (int j = 0; j < 5; j++)

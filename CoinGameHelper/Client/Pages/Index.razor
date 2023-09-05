@@ -75,10 +75,11 @@ else
                         <Div>
                             @{
                                 var value = Simulation.Board.GetValue(row, col);
-                                var iconName = GetIconNameForValue(value);
+                                var (iconName, colorName) = GetIconNameAndColorForValue(value);
                                 if (iconName is not null)
                                 {
-                                    <Icon Name=iconName Clicked="@(async e => await PopModal(row, col))" />
+                                    colorName ??= "black";
+                                    <Icon Name=iconName Clicked="@(async e => await PopModal(row, col))" Style=@("color:"+colorName) />
                                 }
                                 else
                                 {
@@ -151,17 +152,15 @@ else
         Simulation.FinalizeRowsAndColumns();
     }
 
-    private IconName? GetIconNameForValue(SpaceType type)
-    {
-        return type switch
+    private (IconName? icon, string? color) GetIconNameAndColorForValue(SpaceType type)
+        => type switch
         {
-            SpaceType.Unknown => IconName.Expand,
-            SpaceType.Safe => IconName.Check,
-            SpaceType.Bomb => IconName.ExclamationTriangle,
-            SpaceType.BombOrOne => IconName.ExclamationCircle,
-            _ => null
+            SpaceType.Unknown => (IconName.Expand, null),
+            SpaceType.Safe => (IconName.Check, "lightblue"),
+            SpaceType.Bomb => (IconName.ExclamationTriangle, "orangered"),
+            SpaceType.BombOrOne => (IconName.ExclamationCircle, null),
+            _ => (null, null)
         };
-    }
 
     private async Task PopModal(int row, int col)
     {

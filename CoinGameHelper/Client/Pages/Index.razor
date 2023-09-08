@@ -20,7 +20,7 @@ A helper for the HeartGold/SoulSilver Arcade Coin Game.
         @for (int i = 0; i < 5; i++)
         {
             var row = i;
-            <TableRow Style=@("background-color:"+colorNames[row]) >
+            <TableRow Style=@("background-color:"+colorNames[row])>
                 <TableRowCell TextAlignment="TextAlignment.Center">
                     @(row + 1)
                 </TableRowCell>
@@ -64,7 +64,7 @@ else
 {
     @*The board is (at least for now) a table of 5x5 small text edits. When a value is edited, we update the board and run a simulate*@
     <Table Bordered Narrow TextAlignment="TextAlignment.Center" Style="width: 250px">
-     @for (int i = 0; i < Simulation.Board.Rows.Count; i++)
+         @for (int i = 0; i < Simulation.Board.Rows.Count; i++)
         {
             var row = i;
             <TableRow>
@@ -92,7 +92,6 @@ else
                         </Div>
                     </TableRowCell>
                 }
-                <TableRowCell></TableRowCell>
                 <TableRowCell Style="@("background-color: "+colorNames[row])">
                     @{
                         var rowDiff = Simulation.Board.Rows[row].Points + Simulation.Board.Rows[row].Bombs - Simulation.Board.GetRowScore(row, bombVal: 1);
@@ -101,9 +100,6 @@ else
                 </TableRowCell>
             </TableRow>
         }
-        <TableRow>
-            <TableRowCell></TableRowCell>
-        </TableRow>
         <TableRow>
             @for (int j = 0; j < Simulation.Board.Columns.Count; j++)
             {
@@ -117,6 +113,16 @@ else
             }
         </TableRow>
     </Table>
+
+    <Paragraph>
+        Possible boards: @(totalBoards.ToString("N0"))
+    </Paragraph>
+
+    <Paragraph>
+        Best guess is @(safestRow + 1), @(safestColumn + 1) with a score of @(safestScore.ToString("P2")).
+    </Paragraph>
+
+    <Button Color="Color.Primary" Clicked="Reset">Reset</Button>
 }
 
 
@@ -137,19 +143,54 @@ else
 @code {
     Modal selectionModal { get; set; } = new();
     Simulation Simulation { get; set; } = new();
-    private string[] colorNames = new string[] { "red", "green", "yellow", "lightblue", "mediumpurple" };
 
+    private int safestRow = 0;
+    private int safestColumn = 0;
+    private double safestScore = 0;
+    private int totalBoards = 0;
+
+    private string[] colorNames = new string[] { "red", "green", "yellow", "lightblue", "mediumpurple" };
     private int selectedRow = 0;
     private int selectedColumn = 0;
 
     protected override void OnInitialized()
     {
-        Simulation = new Simulation();
+        Reset();
+
+        SetupKnownState();
+    }
+
+    private void SetupKnownState()
+    {
+        Simulation.Board.Rows = new()
+        {
+            new() { Points = 5, Bombs = 1 },
+            new() { Points = 6, Bombs = 0 },
+            new() { Points = 6, Bombs = 1 },
+            new() { Points = 6, Bombs = 1 },
+            new() { Points = 2, Bombs = 3 }
+        };
+        Simulation.Board.Columns = new()
+        {
+            new() { Points = 6, Bombs = 2 },
+            new() { Points = 3, Bombs = 2 },
+            new() { Points = 5, Bombs = 0 },
+            new() { Points = 6, Bombs = 1 },
+            new() { Points = 5, Bombs = 1 }
+        };
+
+        Start();
+    }
+
+    private void Reset()
+    {
+        Simulation.StartNew();
     }
 
     private void Start()
     {
         Simulation.FinalizeRowsAndColumns();
+        PopulateSafestChoice();
     }
 
     private (IconName? icon, string? color) GetIconNameAndColorForValue(SpaceType type)
@@ -175,5 +216,15 @@ else
         await selectionModal.Hide();
         Simulation.Board.SetValue(value, selectedRow, selectedColumn);
         Simulation.Simulate();
+        PopulateSafestChoice();
+    }
+
+    private void PopulateSafestChoice()
+    {
+        var (row, col, score) = Simulation.FindSafestUnknownSpace();
+        safestRow = row;
+        safestColumn = col;
+        safestScore = score;
+        totalBoards = Simulation.AllPossibleBoards.Count;
     }
 }

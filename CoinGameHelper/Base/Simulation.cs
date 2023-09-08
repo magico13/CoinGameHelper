@@ -4,6 +4,8 @@ public class Simulation
 {
     public Board Board { get; private set; } = new();
     public bool WereRowsAndColumnsFinalized { get; private set; }
+    public HashSet<Board> AllPossibleBoards { get; } = new();
+    private List<double> SafeProbabilities { get; } = new();
 
     public Simulation()
     {
@@ -14,11 +16,13 @@ public class Simulation
     {
         WereRowsAndColumnsFinalized = false;
         Board = new Board();
-        for (int i = 0; i< 5; i++)
+        for (int i = 0; i < 5; i++)
         {
             Board.Rows.Add(new());
             Board.Columns.Add(new());
         }
+        AllPossibleBoards.Clear();
+        SafeProbabilities.Clear();
     }
 
     public (List<int> safeRows, List<int> safeColumns) FinalizeRowsAndColumns()
@@ -68,7 +72,7 @@ public class Simulation
                 if (row.Points > 5)
                 {
                     //Console.WriteLine($"Uncover row {i + 1} before continuing.");
-                    safeRows.Add(i+1);
+                    safeRows.Add(i + 1);
                 }
                 else
                 {
@@ -84,7 +88,7 @@ public class Simulation
                 if (col.Points > 5)
                 {
                     //Console.WriteLine($"Uncover column {i + 1} before continuing.");
-                    safeColumns.Add(i+1);
+                    safeColumns.Add(i + 1);
                 }
                 else
                 {
@@ -102,7 +106,46 @@ public class Simulation
         return (safeRows, safeColumns);
     }
 
+    public (int row, int column, double value) FindSafestUnknownSpace()
+    {
+        // Loop through the current board and find the safest unknown space
+        // Safest is defined as the space with the highest probability of being safe
+        // If there are multiple spaces with the same probability, return the first one found
+        // If there are no unknown spaces, return (-1, -1)
+        double highestProbability = 0;
+        int row = -1;
+        int column = -1;
+
+        for (int i = 0; i < 5; i++)
+        {
+            for (int j = 0; j < 5; j++)
+            {
+                var type = Board.GetValue(i, j);
+                if (type is SpaceType.Unknown or SpaceType.Safe)
+                {
+                    var probability = SafeProbabilities[i * 5 + j];
+                    if (probability > highestProbability)
+                    {
+                        highestProbability = probability;
+                        row = i;
+                        column = j;
+                    }
+                }
+            }
+        }
+
+        return (row, column, highestProbability);
+    }
+
     public void Simulate()
+    {
+        // Step 1 is specific to within a row or column with no cross-row/column information
+        Simulate_Step1(Board);
+        // Step 2 is to look at the grid as a whole
+        Simulate_Step2();
+    }
+
+    private static void Simulate_Step1(Board board)
     {
         //simulation step 1:
         // check for any rows/columns where the known points + unknowns == bombs+points
@@ -111,147 +154,242 @@ public class Simulation
         // if all the bombs are known, the rest are safe to choose (but value still unknown)
         for (int i = 0; i < 5; i++)
         {
-            var rowScore = Board.GetRowScore(i);
-            if (rowScore == Board.Rows[i].Points)
+            var rowScore = board.GetRowScore(i);
+            if (rowScore == board.Rows[i].Points)
             {
                 // any unknowns are bombs
                 for (int j = 0; j < 5; j++)
                 {
-                    var type = Board.GetValue(i, j);
+                    var type = board.GetValue(i, j);
                     if (type is SpaceType.Unknown or SpaceType.BombOrOne)
                     {
-                        Board.SetValue(SpaceType.Bomb, i, j);
+                        board.SetValue(SpaceType.Bomb, i, j);
                     }
                 }
             }
-            var rowBombs = Board.GetRowKnownBombs(i);
-            if (rowBombs == Board.Rows[i].Bombs)
+            var rowBombs = board.GetRowKnownBombs(i);
+            if (rowBombs == board.Rows[i].Bombs)
             {
                 //all bombs known, any unknowns are safe
                 for (int j = 0; j < 5; j++)
                 {
-                    var type = Board.GetValue(i, j);
+                    var type = board.GetValue(i, j);
                     if (type is SpaceType.Unknown)
                     {
-                        Board.SetValue(SpaceType.Safe, i, j);
+                        board.SetValue(SpaceType.Safe, i, j);
                     }
                     else if (type is SpaceType.BombOrOne)
                     { // If BombOrOne, but we know all the bombs, then it must be One
-                        Board.SetValue(SpaceType.One, i, j);
+                        board.SetValue(SpaceType.One, i, j);
                     }
                 }
             }
-            var rowUnknowns = Board.GetRowUnknownCount(i);
-            if (rowScore + rowBombs + rowUnknowns == Board.Rows[i].Points + Board.Rows[i].Bombs)
+            var rowUnknowns = board.GetRowUnknownCount(i);
+            if (rowScore + rowBombs + rowUnknowns == board.Rows[i].Points + board.Rows[i].Bombs)
             {
                 // everything unknown is a BombOrOne, ie not worth choosing
                 for (int j = 0; j < 5; j++)
                 {
-                    var type = Board.GetValue(i, j);
+                    var type = board.GetValue(i, j);
                     if (type is SpaceType.Unknown)
                     {
-                        Board.SetValue(SpaceType.BombOrOne, i, j);
+                        board.SetValue(SpaceType.BombOrOne, i, j);
                     }
                 }
             }
             // if the (points+bombs) - (known score + BombOrOne spaces) >= 3*(0 spaces - 1)+2
             // then all remaining spaces must be 2 or 3 spaces, ie safe
-            var rowDiff = Board.Rows[i].Points + Board.Rows[i].Bombs - Board.GetRowScore(i, bombVal: 1);
-            if (rowDiff > (3 * (Board.GetRowUnknownCount(i, false) - 1) + 2))
+            var rowDiff = board.Rows[i].Points + board.Rows[i].Bombs - board.GetRowScore(i, bombVal: 1);
+            if (rowDiff >= (3 * (board.GetRowUnknownCount(i, false) - 1) + 2))
             {
                 for (int j = 0; j < 5; j++)
                 {
-                    var type = Board.GetValue(i, j);
+                    var type = board.GetValue(i, j);
                     if (type is SpaceType.Unknown)
                     {
-                        Board.SetValue(SpaceType.Safe, i, j);
+                        board.SetValue(SpaceType.Safe, i, j);
                     }
                 }
             }
-            else if (rowDiff == Board.GetRowUnknownCount(i, false))
+            else if (rowDiff == board.GetRowUnknownCount(i, false))
             {
                 // the rest must be 1
                 for (int j = 0; j < 5; j++)
                 {
-                    var type = Board.GetValue(i, j);
+                    var type = board.GetValue(i, j);
                     if (type is SpaceType.Unknown or SpaceType.Safe)
                     {
-                        Board.SetValue(SpaceType.One, i, j);
+                        board.SetValue(SpaceType.One, i, j);
                     }
                 }
             }
 
-            var colScore = Board.GetColumnScore(i);
-            if (colScore == Board.Columns[i].Points)
+            var colScore = board.GetColumnScore(i);
+            if (colScore == board.Columns[i].Points)
             {
                 // any unknowns are bombs
                 for (int j = 0; j < 5; j++)
                 {
-                    var type = Board.GetValue(j, i);
+                    var type = board.GetValue(j, i);
                     if (type is SpaceType.Unknown or SpaceType.BombOrOne)
                     {
-                        Board.SetValue(SpaceType.Bomb, j, i);
+                        board.SetValue(SpaceType.Bomb, j, i);
                     }
                 }
             }
-            var colBombs = Board.GetColumnsKnownBombs(i);
-            if (colBombs == Board.Columns[i].Bombs)
+            var colBombs = board.GetColumnsKnownBombs(i);
+            if (colBombs == board.Columns[i].Bombs)
             {
                 //all bombs known, any unknowns are safe
                 for (int j = 0; j < 5; j++)
                 {
-                    var type = Board.GetValue(j, i);
+                    var type = board.GetValue(j, i);
                     if (type is SpaceType.Unknown)
                     {
-                        Board.SetValue(SpaceType.Safe, j, i);
+                        board.SetValue(SpaceType.Safe, j, i);
                     }
                     else if (type is SpaceType.BombOrOne)
                     { // If BombOrOne, but we know all the bombs, then it must be One
-                        Board.SetValue(SpaceType.One, j, i);
+                        board.SetValue(SpaceType.One, j, i);
                     }
                 }
             }
-            var colUnknowns = Board.GetColumnUnknownCount(i);
-            if (colScore + colBombs + colUnknowns == Board.Columns[i].Points + Board.Columns[i].Bombs)
+            var colUnknowns = board.GetColumnUnknownCount(i);
+            if (colScore + colBombs + colUnknowns == board.Columns[i].Points + board.Columns[i].Bombs)
             {
                 // everything unknown is a BombOrOne, ie not worth choosing
                 for (int j = 0; j < 5; j++)
                 {
-                    var type = Board.GetValue(j, i);
+                    var type = board.GetValue(j, i);
                     if (type is SpaceType.Unknown)
                     {
-                        Board.SetValue(SpaceType.BombOrOne, j, i);
+                        board.SetValue(SpaceType.BombOrOne, j, i);
                     }
                 }
             }
 
             // if the (points+bombs) - (known score + BombOrOne spaces) >= 3*(0 spaces - 1)+2
             // then all remaining spaces must be 2 or 3 spaces, ie safe
-            var colDiff = Board.Columns[i].Points + Board.Columns[i].Bombs - Board.GetColumnScore(i, bombVal: 1);
-            if (colDiff > (3 * (Board.GetColumnUnknownCount(i, false) - 1) + 2))
+            var colDiff = board.Columns[i].Points + board.Columns[i].Bombs - board.GetColumnScore(i, bombVal: 1);
+            if (colDiff >= (3 * (board.GetColumnUnknownCount(i, false) - 1) + 2))
             {
                 for (int j = 0; j < 5; j++)
                 {
-                    var type = Board.GetValue(j, i);
+                    var type = board.GetValue(j, i);
                     if (type is SpaceType.Unknown)
                     {
-                        Board.SetValue(SpaceType.Safe, j, i);
+                        board.SetValue(SpaceType.Safe, j, i);
                     }
                 }
             }
-            else if (colDiff == Board.GetColumnUnknownCount(i, false))
+            else if (colDiff == board.GetColumnUnknownCount(i, false))
             {
                 // the rest must be 1
                 for (int j = 0; j < 5; j++)
                 {
-                    var type = Board.GetValue(j, i);
+                    var type = board.GetValue(j, i);
                     if (type is SpaceType.Unknown or SpaceType.Safe)
                     {
-                        Board.SetValue(SpaceType.One, j, i);
+                        board.SetValue(SpaceType.One, j, i);
                     }
                 }
             }
         }
     }
 
+    private void Simulate_Step2()
+    {
+        // try to figure out which spaces are the safest to choose by calculating the probability that they're safe/a bomb
+
+        // I'm not sure how to do this mathematically. But we can simulate all of the possible boards and see which spaces are the safest to choose
+        AllPossibleBoards.Clear();
+        SafeProbabilities.Clear();
+        SimulateAllBoards(Board, AllPossibleBoards, 0);
+
+        for (int i = 0; i < 25; i++)
+        {
+            // get the number of boards where the index is a bomb
+            // it's safe P = 1 - (bombs/total)
+            var row = i / 5;
+            var col = i % 5;
+            var bombBoards = 0;
+            foreach (var board in AllPossibleBoards)
+            {
+                if (board.GetValue(row, col) is SpaceType.Bomb)
+                {
+                    bombBoards++;
+                }
+            }
+
+            var bombProbability = (double)bombBoards / AllPossibleBoards.Count;
+            SafeProbabilities.Add(1 - bombProbability);
+        }
+    }
+
+    private void SimulateAllBoards(Board currentBoard, HashSet<Board> allBoards, int index)
+    {
+        if (index == 25)
+        {
+            // if any of the board is unknown then it's not a full valid board
+            for (int i = 0; i < 5; i++)
+            {
+                for (int j = 0; j < 5; j++)
+                {
+                    var type = currentBoard.GetValue(i, j);
+                    if (type is SpaceType.Unknown or SpaceType.BombOrOne)
+                    {
+                        return;
+                    }
+                }
+                // Check that the rows and columns have the right number of bombs
+                var rowBombs = currentBoard.GetRowKnownBombs(i);
+                var columnBombs = currentBoard.GetColumnsKnownBombs(i);
+                if (rowBombs != currentBoard.Rows[i].Bombs
+                    || columnBombs != currentBoard.Columns[i].Bombs)
+                {
+                    return;
+                }
+            }
+
+            allBoards.Add(currentBoard.Copy());
+            return;
+        }
+
+        int row = index / 5;
+        int col = index % 5;
+
+        var originalValue = Board.GetValue(row, col);
+        if (originalValue is SpaceType.Unknown or SpaceType.BombOrOne)
+        {
+            // If it can be a bomb, assume it's a bomb
+            var rowBombs = currentBoard.GetRowKnownBombs(row);
+            var columnBombs = currentBoard.GetColumnsKnownBombs(col);
+            if (rowBombs < currentBoard.Rows[row].Bombs
+                && columnBombs < currentBoard.Columns[col].Bombs)
+            {
+                // Can be a bomb
+                var bombCopy = currentBoard.Copy();
+                bombCopy.SetValue(SpaceType.Bomb, row, col);
+                Simulate_Step1(bombCopy);
+                SimulateAllBoards(bombCopy, allBoards, index + 1);
+
+                // Reset the square to unrevealed for the next simulation.
+                //copy.SetValue(originalValue, row, col);
+            }
+            //else
+            //{
+            //    // can't be a bomb but is an unknown, mark as safe?
+            //    //var copy = currentBoard.Copy();
+            //    ////copy.SetValue(SpaceType.Safe, row, col);
+            //    //Simulate_Step1(copy);
+            //    SimulateAllBoards(currentBoard, allBoards, index + 1);
+            //}
+            var copy = currentBoard.Copy();
+            SimulateAllBoards(copy, allBoards, index + 1);
+        }
+        else
+        {
+            SimulateAllBoards(currentBoard, allBoards, index + 1);
+        }
+    }
 }

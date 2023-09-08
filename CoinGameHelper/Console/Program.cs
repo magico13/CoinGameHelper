@@ -49,6 +49,8 @@ static void PrintBoard(Board board)
 static void Setup(Simulation simulation)
 {
     var board = simulation.Board;
+    board.Rows.Clear();
+    board.Columns.Clear();
     Console.WriteLine("Enter rows first, one at a time, in 'pointsbombs' format, ex: 071");
     for (int i = 0; i < 5; i++)
     {
@@ -116,11 +118,34 @@ static void Setup(Simulation simulation)
     }
 }
 
+static void SetupKnownState(Simulation simulation)
+{
+    simulation.Board.Rows = new()
+        {
+            new() { Points = 5, Bombs = 1 },
+            new() { Points = 6, Bombs = 0 },
+            new() { Points = 6, Bombs = 1 },
+            new() { Points = 6, Bombs = 1 },
+            new() { Points = 2, Bombs = 3 }
+        };
+    simulation.Board.Columns = new()
+        {
+            new() { Points = 6, Bombs = 2 },
+            new() { Points = 3, Bombs = 2 },
+            new() { Points = 5, Bombs = 0 },
+            new() { Points = 6, Bombs = 1 },
+            new() { Points = 5, Bombs = 1 }
+        };
+
+    simulation.FinalizeRowsAndColumns();
+}
+
 bool run = true;
 var simulation = new Simulation();
 while (run)
 {
     simulation.StartNew();
+    //SetupKnownState(simulation);
     Setup(simulation);
 
     while (true)
@@ -128,12 +153,16 @@ while (run)
         // single line capabilities based on known points, bombs, and unknowns
         simulation.Simulate();
 
+        var (safestRow, safestCol, probability) = simulation.FindSafestUnknownSpace();
+
         // row+column combined restrictions
         // ex: 7.2 - 0 X 2 X X 0
         // Either both 0 spaces are 2 OR one is 3 and the other BombOrOne
         // Using the column data we could narrow down the likelihood of 2-2 or 3-1
 
         PrintBoard(simulation.Board);
+        Console.WriteLine($"{simulation.AllPossibleBoards.Count} possible boards");
+        Console.WriteLine($"Safest space is {safestRow+1},{safestCol+1} with {probability:P2} chance.");
         Console.WriteLine("Enter space, row then column then value (ex 213: row 2, col 1, val=3)");
         var line = Console.ReadLine()?.Trim() ?? string.Empty;
         if (string.Equals(line, "r", StringComparison.OrdinalIgnoreCase))
@@ -152,5 +181,17 @@ while (run)
         {
             EnterSpaceData(simulation.Board, line);
         }
+        //var index = 0;
+        ////for (int i = 0; i < simulation.AllPossibleBoards.Count; i++)
+        //foreach (var board in simulation.AllPossibleBoards)
+        //{
+        //    //Board? board = simulation.AllPossibleBoards[i];
+        //    Console.WriteLine($"Board {index + 1} of {simulation.AllPossibleBoards.Count}. Press enter to continue.");
+        //    PrintBoard(board);
+        //    Console.WriteLine($"Board hash is {board.GetHashCode()}. Board ToString is {board}");
+        //    index++;
+        //    Console.ReadLine();
+        //}
+        
     }
 }

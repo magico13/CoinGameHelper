@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace CoinGameHelper;
 
 public enum SpaceType
@@ -20,6 +22,17 @@ public class Board
     private int[,] GameBoard { get; set; } = new int[5,5];
 
     public Board(){}
+
+    public Board Copy()
+    {
+        var newBoard = new Board
+        {
+            Rows = new List<LineInfo>(Rows),
+            Columns = new List<LineInfo>(Columns),
+            GameBoard = (int[,])GameBoard.Clone()
+        };
+        return newBoard;
+    }
 
     public SpaceType GetValue(int row, int col)
     {
@@ -124,5 +137,33 @@ public class Board
             SpaceType.Bomb or SpaceType.BombOrOne => bombValue,
             _ => 0,
         };
+    }
+
+    public override int GetHashCode()
+    {
+        // Hashcode is on the board values
+        return ToString().GetHashCode();
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is Board other)
+        {
+            return string.Equals(ToString(), other.ToString(), StringComparison.Ordinal);
+        }
+        return false;
+    }
+
+    public override string ToString()
+    {
+        StringBuilder builder = new();
+        for (int i = 0; i < 5; i++)
+        {
+            for (int j = 0; j < 5; j++)
+            {
+                builder.Append(GameBoard[i, j]);
+            }
+        }
+        return builder.ToString();
     }
 }

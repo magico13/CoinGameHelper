@@ -157,30 +157,30 @@ else
     {
         Reset();
 
-        SetupKnownState();
+        //SetupKnownState();
     }
 
-    private void SetupKnownState()
-    {
-        Simulation.Board.Rows = new()
-        {
-            new() { Points = 5, Bombs = 1 },
-            new() { Points = 6, Bombs = 0 },
-            new() { Points = 6, Bombs = 1 },
-            new() { Points = 6, Bombs = 1 },
-            new() { Points = 2, Bombs = 3 }
-        };
-        Simulation.Board.Columns = new()
-        {
-            new() { Points = 6, Bombs = 2 },
-            new() { Points = 3, Bombs = 2 },
-            new() { Points = 5, Bombs = 0 },
-            new() { Points = 6, Bombs = 1 },
-            new() { Points = 5, Bombs = 1 }
-        };
+    // private void SetupKnownState()
+    // {
+    //     Simulation.Board.Rows = new()
+    //     {
+    //         new() { Points = 5, Bombs = 1 },
+    //         new() { Points = 6, Bombs = 0 },
+    //         new() { Points = 6, Bombs = 1 },
+    //         new() { Points = 6, Bombs = 1 },
+    //         new() { Points = 2, Bombs = 3 }
+    //     };
+    //     Simulation.Board.Columns = new()
+    //     {
+    //         new() { Points = 6, Bombs = 2 },
+    //         new() { Points = 3, Bombs = 2 },
+    //         new() { Points = 5, Bombs = 0 },
+    //         new() { Points = 6, Bombs = 1 },
+    //         new() { Points = 5, Bombs = 1 }
+    //     };
 
-        Start();
-    }
+    //     Start();
+    // }
 
     private void Reset()
     {
